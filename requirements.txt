@@ -1,0 +1,11 @@
+# === Núcleo de dados (Módulos 1-3) ===
+pandas==2.2.3
+numpy==2.1.3
+
+# Nada mais por enquanto — vamos adicionar bibliotecas
+# À MEDIDA que cada módulo precisar delas.
+# Regra profissional: não instale o que ainda não usa.
+#
+# Próximas a entrar (nos módulos futuros):
+# polars, scikit-learn, lightgbm, catboost, plotly,
+# statsmodels, shap, fastapi, uvicorn, pytest, anthropic

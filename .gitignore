@@ -1,0 +1,29 @@
+# Ambiente virtual (NUNCA versionar — é pesado e específico da máquina)
+.venv/
+venv/
+
+# Cache do Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Segredos (chaves de API do LLM, senhas de banco) — JAMAIS no Git
+.env
+*.env
+
+# Dados brutos dos usuários (privacidade + tamanho)
+data/*
+!data/.gitkeep
+
+# Artefatos de modelos treinados
+*.pkl
+*.joblib
+models/
+
+# IDE / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
