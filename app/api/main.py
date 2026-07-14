@@ -12,6 +12,7 @@ Rotas:
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
@@ -129,11 +130,15 @@ def ver_preview(
 @app.get("/datasets/{dataset_id}/graficos", response_model=Graficos, tags=["dados"])
 def ver_graficos(
     dataset_id: str,
+    tema: Literal["claro", "escuro"] = "escuro",
     repo: RepositorioDeDatasets = Depends(obter_repositorio),
 ) -> Graficos:
-    """Histogramas + mapa de correlacao, gerados no servidor (Plotly)."""
+    """Histogramas + mapa de correlacao, gerados no servidor (Plotly).
+
+    O `tema` ajusta a cor do texto/eixos para casar com a pagina.
+    """
     dataset = _buscar_ou_404(repo, dataset_id)
-    return Graficos(graficos=gerar_graficos(dataset.df, dataset.perfil))
+    return Graficos(graficos=gerar_graficos(dataset.df, dataset.perfil, tema=tema))
 
 
 @app.post("/datasets/{dataset_id}/perguntar", response_model=Resposta, tags=["llm"])

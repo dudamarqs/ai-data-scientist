@@ -28,21 +28,26 @@ def _para_json(figura: Any) -> dict[str, Any]:
     return json.loads(pio.to_json(figura))
 
 
-def _tema(figura: Any) -> Any:
-    """Deixa o grafico transparente para casar com o tema escuro da pagina."""
+def _aplicar_tema(figura: Any, tema: str) -> Any:
+    """Fundo transparente + template conforme o tema da pagina (claro/escuro).
+
+    O fundo transparente faz o grafico 'flutuar' sobre o card, seja qual for a
+    cor da pagina. O template so ajusta a cor do texto, eixos e grades.
+    """
     figura.update_layout(
-        template="plotly_dark",
+        template="plotly_dark" if tema == "escuro" else "plotly_white",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        margin=dict(l=40, r=20, t=50, b=40),
-        height=320,
+        margin=dict(l=45, r=20, t=45, b=40),
+        height=300,
         font=dict(family="Inter, system-ui, sans-serif", size=12),
+        title=dict(font=dict(size=13)),
     )
     return figura
 
 
 def gerar_graficos(
-    df: pd.DataFrame, perfil: dict[str, TipoSemantico]
+    df: pd.DataFrame, perfil: dict[str, TipoSemantico], tema: str = "escuro"
 ) -> list[dict[str, Any]]:
     """Histogramas das colunas numericas + mapa de calor das correlacoes."""
     graficos: list[dict[str, Any]] = []
@@ -55,13 +60,18 @@ def gerar_graficos(
             continue
         figura = px.histogram(
             df, x=coluna, nbins=30, title=f"Distribuicao de {coluna}",
-            color_discrete_sequence=["#2dd4bf"],
+            color_discrete_sequence=["#0d9488"],
         )
         figura.add_vline(
             x=serie.median(), line_dash="dash", line_color="#f59e0b",
             annotation_text="mediana", annotation_position="top",
         )
-        graficos.append({"titulo": f"Distribuicao de {coluna}", "figura": _para_json(_tema(figura))})
+        graficos.append(
+            {
+                "titulo": f"Distribuicao de {coluna}",
+                "figura": _para_json(_aplicar_tema(figura, tema)),
+            }
+        )
 
     # 2) Mapa de calor das correlacoes (so faz sentido com 2+ colunas numericas)
     if len(numericas) >= 2:
@@ -70,7 +80,12 @@ def gerar_graficos(
             matriz, text_auto=True, aspect="auto", zmin=-1, zmax=1,
             color_continuous_scale="RdBu_r", title="Mapa de correlacao",
         )
-        graficos.append({"titulo": "Mapa de correlacao", "figura": _para_json(_tema(figura))})
+        graficos.append(
+            {
+                "titulo": "Mapa de correlacao",
+                "figura": _para_json(_aplicar_tema(figura, tema)),
+            }
+        )
 
     return graficos
 

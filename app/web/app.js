@@ -1,8 +1,8 @@
 /**
  * Frontend do AI Data Scientist.
  *
- * Nao ha framework: so fetch + DOM. O servidor ja entrega tudo pronto
- * (perfil, tabela, figuras do Plotly em JSON) -- o navegador so desenha.
+ * Sem framework: fetch + DOM. O servidor entrega tudo pronto (perfil, tabela,
+ * figuras do Plotly em JSON) -- o navegador so desenha.
  */
 
 const $ = (id) => document.getElementById(id);
@@ -10,7 +10,38 @@ const $ = (id) => document.getElementById(id);
 let datasetId = null;
 let enviando = false;
 
-/* ---------------- Upload ---------------- */
+/* ===================== TEMA (claro / escuro) ===================== */
+
+const CHAVE_TEMA = "ads-tema";
+
+function temaAtual() {
+  return document.documentElement.dataset.tema;
+}
+
+function aplicarTema(tema) {
+  document.documentElement.dataset.tema = tema;
+  localStorage.setItem(CHAVE_TEMA, tema);
+  // O icone mostra para ONDE voce vai, nao onde esta.
+  $("btn-tema").innerHTML =
+    tema === "escuro"
+      ? '<i class="bi bi-sun"></i>'
+      : '<i class="bi bi-moon-stars"></i>';
+}
+
+// Preferencia salva > preferencia do sistema operacional > claro.
+aplicarTema(
+  localStorage.getItem(CHAVE_TEMA) ||
+    (matchMedia("(prefers-color-scheme: dark)").matches ? "escuro" : "claro")
+);
+
+$("btn-tema").addEventListener("click", () => {
+  aplicarTema(temaAtual() === "escuro" ? "claro" : "escuro");
+  // Os graficos sao gerados no servidor COM o tema -> precisam ser refeitos.
+  if (datasetId && !$("painel-graficos").hidden) carregarGraficos();
+  else graficosCarregados = false;
+});
+
+/* ===================== UPLOAD ===================== */
 
 const dropzone = $("dropzone");
 const inputArquivo = $("input-arquivo");
@@ -24,14 +55,14 @@ inputArquivo.addEventListener("change", () => {
   if (inputArquivo.files[0]) enviarArquivo(inputArquivo.files[0]);
 });
 
-["dragenter", "dragover"].forEach((evento) =>
-  dropzone.addEventListener(evento, (e) => {
+["dragenter", "dragover"].forEach((ev) =>
+  dropzone.addEventListener(ev, (e) => {
     e.preventDefault();
     dropzone.classList.add("arrastando");
   })
 );
-["dragleave", "drop"].forEach((evento) =>
-  dropzone.addEventListener(evento, (e) => {
+["dragleave", "drop"].forEach((ev) =>
+  dropzone.addEventListener(ev, (e) => {
     e.preventDefault();
     dropzone.classList.remove("arrastando");
   })
@@ -42,9 +73,9 @@ dropzone.addEventListener("drop", (e) => {
 });
 
 async function enviarArquivo(arquivo) {
-  const erro = $("erro-upload");
-  erro.hidden = true;
-  dropzone.querySelector("h2").textContent = "Analisando…";
+  const alerta = $("erro-upload");
+  alerta.hidden = true;
+  dropzone.querySelector(".dropzone-titulo").textContent = "Analisando...";
 
   const formulario = new FormData();
   formulario.append("arquivo", arquivo);
@@ -55,44 +86,97 @@ async function enviarArquivo(arquivo) {
     if (!resposta.ok) throw new Error(corpo.detail || "Falha ao enviar o arquivo.");
 
     datasetId = corpo.dataset_id;
-    mostrarWorkspace(corpo);
-    carregarTabela();
-    carregarGraficos();
+    abrirChat(corpo, arquivo.name);
   } catch (e) {
-    erro.textContent = e.message;
-    erro.hidden = false;
-    dropzone.querySelector("h2").textContent = "Arraste seu CSV aqui";
+    alerta.querySelector("span").textContent = e.message;
+    alerta.hidden = false;
+    dropzone.querySelector(".dropzone-titulo").textContent = "Arraste o arquivo aqui";
   }
 }
 
-/* ---------------- Painel de dados ---------------- */
-
-function mostrarWorkspace(dados) {
+function abrirChat(dados, nomeArquivo) {
   $("tela-upload").hidden = true;
-  $("tela-dados").hidden = false;
+  $("tela-chat").hidden = false;
 
-  $("cartoes").innerHTML = `
-    ${cartao(dados.linhas.toLocaleString("pt-BR"), "linhas")}
-    ${cartao(dados.colunas, "colunas")}
-    ${cartao(dados.duplicatas_removidas, "duplicatas removidas")}
-  `;
+  $("nome-arquivo").textContent = nomeArquivo;
+  $("chip-arquivo").hidden = false;
+  $("btn-painel").hidden = false;
+  $("btn-novo").hidden = false;
 
+  $("cartoes").innerHTML =
+    cartao(dados.linhas.toLocaleString("pt-BR"), "linhas") +
+    cartao(dados.colunas, "colunas") +
+    cartao(dados.duplicatas_removidas, "duplicatas");
+
+  const icones = {
+    moeda: "bi-cash-coin",
+    data: "bi-calendar3",
+    identificador: "bi-key",
+    categoria: "bi-tag",
+    numerico: "bi-123",
+    texto: "bi-fonts",
+  };
   $("chips").innerHTML = Object.entries(dados.perfil)
     .map(
-      ([coluna, tipo]) =>
-        `<span class="chip" data-tipo="${tipo}">${coluna}<span class="tipo">${tipo}</span></span>`
+      ([coluna, tipo]) => `
+      <span class="chip" data-tipo="${tipo}">
+        <i class="bi ${icones[tipo] || "bi-question"}"></i>
+        ${escapar(coluna)}<span class="tipo">${tipo}</span>
+      </span>`
     )
     .join("");
+
+  carregarTabela();
+  $("input-pergunta").focus();
 }
 
 const cartao = (valor, rotulo) =>
   `<div class="cartao"><div class="valor">${valor}</div><div class="rotulo">${rotulo}</div></div>`;
 
+$("btn-novo").addEventListener("click", () => location.reload());
+
+/* ===================== PAINEL DESLIZANTE ===================== */
+
+let graficosCarregados = false;
+
+function abrirPainel() {
+  $("painel").hidden = false;
+  $("cortina").hidden = false;
+}
+function fecharPainel() {
+  $("painel").hidden = true;
+  $("cortina").hidden = true;
+}
+
+$("btn-painel").addEventListener("click", abrirPainel);
+$("btn-fechar-painel").addEventListener("click", fecharPainel);
+$("cortina").addEventListener("click", fecharPainel);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !$("painel").hidden) fecharPainel();
+});
+
+document.querySelectorAll(".aba").forEach((aba) =>
+  aba.addEventListener("click", () => {
+    document.querySelectorAll(".aba").forEach((a) => a.classList.remove("ativa"));
+    aba.classList.add("ativa");
+
+    const alvo = aba.dataset.aba;
+    $("painel-perfil").hidden = alvo !== "perfil";
+    $("painel-tabela").hidden = alvo !== "tabela";
+    $("painel-graficos").hidden = alvo !== "graficos";
+
+    if (alvo === "graficos") {
+      if (!graficosCarregados) carregarGraficos();
+      else window.dispatchEvent(new Event("resize")); // Plotly recalcula o tamanho
+    }
+  })
+);
+
 async function carregarTabela() {
   const dados = await (await fetch(`/datasets/${datasetId}/preview`)).json();
 
   const cabecalho = `<thead><tr>${dados.colunas
-    .map((c) => `<th>${c}</th>`)
+    .map((c) => `<th>${escapar(c)}</th>`)
     .join("")}</tr></thead>`;
 
   const corpo = dados.linhas
@@ -103,7 +187,7 @@ async function carregarTabela() {
             const valor = linha[c];
             return valor === null || valor === undefined
               ? `<td class="nulo">vazio</td>`
-              : `<td>${valor}</td>`;
+              : `<td>${escapar(String(valor))}</td>`;
           })
           .join("")}</tr>`
     )
@@ -114,12 +198,15 @@ async function carregarTabela() {
 
 async function carregarGraficos() {
   const alvo = $("graficos");
+  alvo.innerHTML = `<p class="nota-centro"><i class="bi bi-hourglass-split"></i> Gerando gráficos...</p>`;
+
   try {
-    const dados = await (await fetch(`/datasets/${datasetId}/graficos`)).json();
+    const url = `/datasets/${datasetId}/graficos?tema=${temaAtual()}`;
+    const dados = await (await fetch(url)).json();
     alvo.innerHTML = "";
 
     if (!dados.graficos.length) {
-      alvo.innerHTML = `<p class="carregando">Sem colunas numéricas para plotar.</p>`;
+      alvo.innerHTML = `<p class="nota-centro"><i class="bi bi-slash-circle"></i> Sem colunas numéricas para plotar.</p>`;
       return;
     }
 
@@ -133,36 +220,21 @@ async function carregarGraficos() {
         displayModeBar: false,
       });
     });
+    graficosCarregados = true;
   } catch {
-    alvo.innerHTML = `<p class="carregando">Não foi possível gerar os gráficos.</p>`;
+    alvo.innerHTML = `<p class="nota-centro"><i class="bi bi-exclamation-triangle"></i> Não foi possível gerar os gráficos.</p>`;
   }
 }
 
-/* ---------------- Abas ---------------- */
-
-document.querySelectorAll(".aba").forEach((aba) =>
-  aba.addEventListener("click", () => {
-    document.querySelectorAll(".aba").forEach((a) => a.classList.remove("ativa"));
-    aba.classList.add("ativa");
-    const alvo = aba.dataset.aba;
-    $("painel-tabela").hidden = alvo !== "tabela";
-    $("painel-graficos").hidden = alvo !== "graficos";
-    // O Plotly precisa recalcular o tamanho quando a aba fica visível.
-    if (alvo === "graficos") window.dispatchEvent(new Event("resize"));
-  })
-);
-
-$("btn-trocar").addEventListener("click", () => location.reload());
-
-/* ---------------- Chat ---------------- */
+/* ===================== CHAT ===================== */
 
 const mensagens = $("mensagens");
 
 document.addEventListener("click", (e) => {
-  if (e.target.classList.contains("sugestao")) {
-    $("input-pergunta").value = e.target.textContent;
-    $("form-chat").requestSubmit();
-  }
+  const sugestao = e.target.closest(".sugestao");
+  if (!sugestao) return;
+  $("input-pergunta").value = sugestao.textContent.trim();
+  $("form-chat").requestSubmit();
 });
 
 $("form-chat").addEventListener("submit", async (e) => {
@@ -174,7 +246,7 @@ $("form-chat").addEventListener("submit", async (e) => {
   if (pergunta.length < 3) return;
 
   campo.value = "";
-  adicionarMensagem(pergunta, "user");
+  adicionarUsuario(pergunta);
 
   enviando = true;
   $("btn-enviar").disabled = true;
@@ -190,64 +262,90 @@ $("form-chat").addEventListener("submit", async (e) => {
     pensando.remove();
 
     if (!resposta.ok) {
-      adicionarMensagem(corpo.detail || "Erro ao consultar o modelo.", "bot", [], true);
+      adicionarAssistente(corpo.detail || "Erro ao consultar o modelo.", [], true);
       return;
     }
-    adicionarMensagem(corpo.resposta, "bot", corpo.bastidores);
+    adicionarAssistente(corpo.resposta, corpo.bastidores);
   } catch {
     pensando.remove();
-    adicionarMensagem("Não consegui falar com o servidor.", "bot", [], true);
+    adicionarAssistente("Não consegui falar com o servidor.", [], true);
   } finally {
     enviando = false;
     $("btn-enviar").disabled = false;
+    campo.focus();
   }
 });
 
-function adicionarMensagem(texto, autor, bastidores = [], ehErro = false) {
-  const div = document.createElement("div");
-  div.className = `msg ${autor}` + (ehErro ? " erro-msg" : "");
-  div.innerHTML = formatar(texto);
+function adicionarUsuario(texto) {
+  const artigo = document.createElement("article");
+  artigo.className = "msg usuario";
+  artigo.innerHTML = `<div class="balao">${escapar(texto)}</div>`;
+  mensagens.appendChild(artigo);
+  rolar();
+}
 
-  // OS BASTIDORES: a prova de que o número não foi inventado pelo LLM.
+function adicionarAssistente(texto, bastidores = [], ehErro = false) {
+  const artigo = document.createElement("article");
+  artigo.className = "msg assistente" + (ehErro ? " erro" : "");
+  artigo.innerHTML = `
+    <span class="avatar"><i class="bi bi-bar-chart-line-fill"></i></span>
+    <div class="balao">${formatar(texto)}</div>`;
+
+  // BASTIDORES: a prova de que o numero saiu do Python, nao do modelo.
   if (bastidores.length) {
     const detalhes = document.createElement("details");
     detalhes.className = "bastidores";
     detalhes.innerHTML =
-      `<summary>Bastidores — ${bastidores.length} ferramenta(s) executada(s) em Python</summary>` +
+      `<summary>
+         <i class="bi bi-tools"></i>
+         Auditoria: ${bastidores.length} ferramenta(s) executada(s) em Python
+         <i class="bi bi-chevron-right seta"></i>
+       </summary>` +
       bastidores
         .map(
           (b) => `
         <div class="passo">
-          <div class="rotulo-passo">
-            O LLM pediu: <code>${b.ferramenta}(${JSON.stringify(b.argumentos)})</code>
+          <div class="linha pedido">
+            <i class="bi bi-cpu"></i>
+            O modelo pediu <code>${escapar(b.ferramenta)}(${escapar(
+            JSON.stringify(b.argumentos)
+          )})</code>
           </div>
-          <div class="rotulo-passo">O Python calculou e devolveu:</div>
+          <div class="linha">
+            <i class="bi bi-terminal"></i> O Python calculou e devolveu:
+          </div>
           <pre>${escapar(b.resultado)}</pre>
         </div>`
         )
         .join("");
-    div.appendChild(detalhes);
+    artigo.querySelector(".balao").appendChild(detalhes);
   }
 
-  mensagens.appendChild(div);
-  mensagens.scrollTop = mensagens.scrollHeight;
-  return div;
+  mensagens.appendChild(artigo);
+  rolar();
 }
 
 function adicionarPensando() {
-  const div = document.createElement("div");
-  div.className = "msg bot";
-  div.innerHTML = `<div class="pensando"><span></span><span></span><span></span></div>`;
-  mensagens.appendChild(div);
-  mensagens.scrollTop = mensagens.scrollHeight;
-  return div;
+  const artigo = document.createElement("article");
+  artigo.className = "msg assistente";
+  artigo.innerHTML = `
+    <span class="avatar"><i class="bi bi-bar-chart-line-fill"></i></span>
+    <div class="balao">
+      <div class="pensando"><span></span><span></span><span></span></div>
+    </div>`;
+  mensagens.appendChild(artigo);
+  rolar();
+  return artigo;
 }
 
-/** Markdown mínimo: **negrito**, `código` e parágrafos. */
+const rolar = () => (mensagens.scrollTop = mensagens.scrollHeight);
+
+/** Markdown minimo: **negrito**, `codigo`, listas simples e paragrafos. */
 function formatar(texto) {
   return escapar(texto)
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/`(.+?)`/g, "<code>$1</code>")
+    .replace(/^#{1,6}\s*(.+)$/gm, "<strong>$1</strong>")
     .split(/\n{2,}/)
     .map((p) => `<p>${p.replace(/\n/g, "<br>")}</p>`)
     .join("");

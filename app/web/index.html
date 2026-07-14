@@ -1,100 +1,143 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-tema="claro">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI Data Scientist</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>" />
+
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='4' fill='%230d9488'/><path d='M4 11.5V7M8 11.5V4.5M12 11.5V9' stroke='white' stroke-width='1.7' stroke-linecap='round'/></svg>" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
   <link rel="stylesheet" href="/static/style.css" />
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
 </head>
 <body>
 
-  <header class="topo">
-    <div class="marca">
-      <span class="logo">🤖</span>
-      <div>
-        <h1>AI Data Scientist</h1>
-        <p class="sub">Envie um CSV e converse com seus dados em português</p>
+<!-- ====================== BARRA SUPERIOR ====================== -->
+<header class="barra">
+  <div class="barra-inicio">
+    <span class="marca-icone"><i class="bi bi-bar-chart-line-fill"></i></span>
+    <span class="marca-nome">AI Data Scientist</span>
+    <span id="chip-arquivo" class="chip-arquivo" hidden>
+      <i class="bi bi-filetype-csv"></i><span id="nome-arquivo"></span>
+    </span>
+  </div>
+
+  <div class="barra-fim">
+    <button id="btn-painel" class="btn-icone" title="Ver os dados" hidden>
+      <i class="bi bi-layout-sidebar-inset-reverse"></i><span>Dados</span>
+    </button>
+    <button id="btn-tema" class="btn-icone" title="Alternar tema">
+      <i class="bi bi-moon-stars"></i>
+    </button>
+    <button id="btn-novo" class="btn-icone" title="Enviar outro arquivo" hidden>
+      <i class="bi bi-arrow-repeat"></i>
+    </button>
+  </div>
+</header>
+
+<!-- ====================== ETAPA 1: UPLOAD ====================== -->
+<main id="tela-upload" class="tela-centro">
+  <div class="cartao-upload">
+    <div class="selo"><i class="bi bi-stars"></i> O modelo orquestra, o código calcula</div>
+    <h1>Converse com seus dados</h1>
+    <p class="lead">Envie um CSV. O sistema detecta o significado de cada coluna,
+      limpa os dados e responde suas perguntas com estatística e Machine Learning
+      de verdade — nunca com números inventados.</p>
+
+    <div id="dropzone" class="dropzone">
+      <i class="bi bi-cloud-arrow-up dropzone-icone"></i>
+      <p class="dropzone-titulo">Arraste o arquivo aqui</p>
+      <p class="dropzone-sub">ou <button id="btn-escolher" class="link" type="button">selecione do computador</button></p>
+      <input type="file" id="input-arquivo" accept=".csv" hidden />
+    </div>
+
+    <p id="erro-upload" class="alerta" hidden>
+      <i class="bi bi-exclamation-triangle"></i><span></span>
+    </p>
+
+    <ul class="recursos">
+      <li><i class="bi bi-tags"></i> Detecção de tipos semânticos</li>
+      <li><i class="bi bi-graph-up"></i> Gráficos interativos</li>
+      <li><i class="bi bi-cpu"></i> Machine Learning e SHAP</li>
+      <li><i class="bi bi-shield-check"></i> Respostas auditáveis</li>
+    </ul>
+  </div>
+</main>
+
+<!-- ====================== ETAPA 2: CHAT ====================== -->
+<main id="tela-chat" class="tela-chat" hidden>
+  <div id="mensagens" class="mensagens">
+    <article class="msg assistente">
+      <span class="avatar"><i class="bi bi-bar-chart-line-fill"></i></span>
+      <div class="balao">
+        <p>Analisei seu arquivo. Pergunte o que quiser — vou usar estatística
+          e Machine Learning para responder, e você poderá auditar cada número.</p>
+        <div class="sugestoes">
+          <button class="sugestao" type="button">
+            <i class="bi bi-lightning-charge"></i>Qual o valor típico dos dados?
+          </button>
+          <button class="sugestao" type="button">
+            <i class="bi bi-lightning-charge"></i>Existe correlação entre as variáveis?
+          </button>
+          <button class="sugestao" type="button">
+            <i class="bi bi-lightning-charge"></i>O que mais influencia os resultados?
+          </button>
+        </div>
       </div>
-    </div>
-    <div class="tese">
-      <strong>O LLM orquestra.</strong> O código calcula.
-    </div>
+    </article>
+  </div>
+
+  <div class="area-entrada">
+    <form id="form-chat" class="entrada">
+      <input id="input-pergunta" type="text" autocomplete="off" required minlength="3"
+             placeholder="Pergunte algo sobre seus dados..." />
+      <button id="btn-enviar" type="submit" title="Enviar">
+        <i class="bi bi-arrow-up"></i>
+      </button>
+    </form>
+    <p class="rodape-nota">
+      <i class="bi bi-info-circle"></i>
+      Os números vêm de pandas, scikit-learn e SHAP — não do modelo de linguagem.
+    </p>
+  </div>
+</main>
+
+<!-- ====================== PAINEL DESLIZANTE ====================== -->
+<div id="cortina" class="cortina" hidden></div>
+
+<aside id="painel" class="painel" hidden aria-label="Detalhes do dataset">
+  <header class="painel-topo">
+    <h2><i class="bi bi-database"></i> Seus dados</h2>
+    <button id="btn-fechar-painel" class="btn-icone" title="Fechar">
+      <i class="bi bi-x-lg"></i>
+    </button>
   </header>
 
-  <!-- ETAPA 1: upload -->
-  <main id="tela-upload" class="tela">
-    <div id="dropzone" class="dropzone">
-      <div class="dropzone-icone">📄</div>
-      <h2>Arraste seu CSV aqui</h2>
-      <p>ou <button id="btn-escolher" class="link">escolha um arquivo</button></p>
-      <input type="file" id="input-arquivo" accept=".csv" hidden />
-      <p class="dica">O sistema vai detectar sozinho o tipo de cada coluna, limpar os
-        dados e ficar pronto para responder perguntas.</p>
+  <div id="cartoes" class="cartoes"></div>
+
+  <nav class="abas">
+    <button class="aba ativa" data-aba="perfil"><i class="bi bi-tags"></i>Perfil</button>
+    <button class="aba" data-aba="tabela"><i class="bi bi-table"></i>Tabela</button>
+    <button class="aba" data-aba="graficos"><i class="bi bi-graph-up"></i>Gráficos</button>
+  </nav>
+
+  <section id="painel-perfil" class="conteudo-aba">
+    <p class="nota">O sistema descobriu sozinho o <strong>significado</strong> de cada
+      coluna — não só o tipo técnico. Identificadores ficam de fora dos cálculos.</p>
+    <div id="chips" class="chips"></div>
+  </section>
+
+  <section id="painel-tabela" class="conteudo-aba" hidden>
+    <div class="tabela-scroll"><table id="tabela"></table></div>
+  </section>
+
+  <section id="painel-graficos" class="conteudo-aba" hidden>
+    <div id="graficos" class="graficos">
+      <p class="nota-centro"><i class="bi bi-hourglass-split"></i> Gerando gráficos...</p>
     </div>
-    <p id="erro-upload" class="erro" hidden></p>
-  </main>
+  </section>
+</aside>
 
-  <!-- ETAPA 2: workspace -->
-  <main id="tela-dados" class="tela grade" hidden>
-
-    <!-- COLUNA ESQUERDA: os dados -->
-    <section class="painel">
-      <div class="painel-cabecalho">
-        <h2>Seus dados</h2>
-        <button id="btn-trocar" class="botao-fantasma">Trocar CSV</button>
-      </div>
-
-      <div id="cartoes" class="cartoes"></div>
-
-      <h3>Tipos semânticos detectados</h3>
-      <p class="explicacao">O sistema descobriu sozinho o <em>significado</em> de cada
-        coluna — não só o tipo técnico. Identificadores ficam fora dos cálculos.</p>
-      <div id="chips" class="chips"></div>
-
-      <div class="abas">
-        <button class="aba ativa" data-aba="tabela">Tabela</button>
-        <button class="aba" data-aba="graficos">Gráficos</button>
-      </div>
-
-      <div id="painel-tabela" class="conteudo-aba">
-        <div class="tabela-scroll"><table id="tabela"></table></div>
-      </div>
-
-      <div id="painel-graficos" class="conteudo-aba" hidden>
-        <div id="graficos" class="graficos">
-          <p class="carregando">Gerando gráficos…</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- COLUNA DIREITA: a conversa -->
-    <section class="painel chat">
-      <div class="painel-cabecalho">
-        <h2>Converse com os dados</h2>
-      </div>
-
-      <div id="mensagens" class="mensagens">
-        <div class="msg bot">
-          <p>Pronto! Já analisei seu arquivo. Pode perguntar o que quiser — vou usar
-            estatística e Machine Learning de verdade para responder.</p>
-          <div class="sugestoes">
-            <button class="sugestao">Qual o valor típico dos dados?</button>
-            <button class="sugestao">Existe correlação entre as variáveis?</button>
-            <button class="sugestao">Há algum padrão escondido?</button>
-          </div>
-        </div>
-      </div>
-
-      <form id="form-chat" class="entrada">
-        <input id="input-pergunta" type="text" placeholder="Pergunte algo sobre seus dados…"
-               autocomplete="off" required minlength="3" />
-        <button id="btn-enviar" type="submit">Perguntar</button>
-      </form>
-    </section>
-  </main>
-
-  <script src="/static/app.js"></script>
+<script src="/static/app.js"></script>
 </body>
 </html>
