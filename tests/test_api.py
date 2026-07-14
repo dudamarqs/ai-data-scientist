@@ -51,10 +51,18 @@ def test_dataset_inexistente_da_404(cliente):
     assert cliente.get("/datasets/naoexiste").status_code == 404
 
 
-def test_pergunta_sem_chave_de_api_da_503(cliente, monkeypatch):
+@pytest.mark.parametrize(
+    ("provedor", "chave_esperada"),
+    [("gemini", "GOOGLE_API_KEY"), ("claude", "ANTHROPIC_API_KEY")],
+)
+def test_pergunta_sem_chave_de_api_da_503(cliente, monkeypatch, provedor, chave_esperada):
+    """Sem chave, a API avisa educadamente (503) -- para qualquer provedor."""
     from app.core import config
 
+    monkeypatch.setattr(config, "PROVEDOR_LLM", provedor)
+    monkeypatch.setattr(config, "GOOGLE_API_KEY", None)
     monkeypatch.setattr(config, "ANTHROPIC_API_KEY", None)
+
     dataset_id = cliente.post(
         "/datasets", files={"arquivo": ("v.csv", CSV, "text/csv")}
     ).json()["dataset_id"]
@@ -63,7 +71,7 @@ def test_pergunta_sem_chave_de_api_da_503(cliente, monkeypatch):
         f"/datasets/{dataset_id}/perguntar", json={"texto": "Qual o preco medio?"}
     )
     assert resposta.status_code == 503
-    assert "ANTHROPIC_API_KEY" in resposta.json()["detail"]
+    assert chave_esperada in resposta.json()["detail"]
 
 
 def test_pergunta_curta_demais_e_rejeitada_pelo_pydantic(cliente):

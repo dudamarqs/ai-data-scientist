@@ -16,6 +16,7 @@ from app.core import config
 from app.core.pipeline import DatasetPreparado, preparar
 from app.ingestion import ErroDeIngestao
 from app.llm import CaixaDeFerramentas, OrquestradorLLM, descrever_dataset
+from app.llm.factory import ProvedorNaoConfigurado, criar_cliente
 
 app = FastAPI(
     title="AI Data Scientist",
@@ -101,14 +102,15 @@ def perguntar(
     """Conversa com os dados: o LLM orquestra, o nosso codigo calcula."""
     dataset = _buscar_ou_404(repo, dataset_id)
 
-    if not config.ANTHROPIC_API_KEY:
-        raise HTTPException(
-            status.HTTP_503_SERVICE_UNAVAILABLE,
-            "ANTHROPIC_API_KEY nao configurada. Crie um arquivo .env com a chave.",
-        )
+    try:
+        cliente, modelo = criar_cliente()  # Gemini ou Claude, conforme o .env
+    except ProvedorNaoConfigurado as erro:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(erro)) from erro
 
     orquestrador = OrquestradorLLM(
         ferramentas=CaixaDeFerramentas(dataset.df, dataset.perfil),
         contexto_dataset=descrever_dataset(dataset.df, dataset.perfil),
+        cliente=cliente,
+        modelo=modelo,
     )
     return Resposta(pergunta=pergunta.texto, resposta=orquestrador.perguntar(pergunta.texto))

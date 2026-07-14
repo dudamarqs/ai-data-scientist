@@ -8,9 +8,16 @@ scikit-learn==1.6.0
 # === Interpretabilidade (Módulo 6) ===
 shap==0.52.0
 
-# === Camada LLM (Módulo 7) ===
-anthropic==0.116.0
+# === Camada LLM (Módulo 7) — dois provedores intercambiáveis ===
+google-genai==2.11.0      # Gemini (free tier)
+anthropic==0.116.0        # Claude (pago) — opcional
 python-dotenv==1.0.1
+
+# === API (Módulo 8) ===
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.32
 
 # === Testes ===
 pytest==8.3.4
+httpx==0.28.1

@@ -73,9 +73,12 @@ py -3.12 -m venv .venv
 .venv\Scripts\activate            # Windows  (Linux/Mac: source .venv/bin/activate)
 pip install -r requirements.txt
 
-cp .env.example .env              # coloque sua ANTHROPIC_API_KEY
+cp .env.example .env              # coloque sua GOOGLE_API_KEY (gratuita)
 uvicorn app.api.main:app --reload
 ```
+
+> 🔑 A chave do **Gemini é gratuita** e não pede cartão: https://aistudio.google.com/apikey
+> Prefere o Claude? Troque uma linha no `.env`: `PROVEDOR_LLM=claude`.
 
 Abra **http://localhost:8000/docs** — documentação interativa gerada
 automaticamente pelo FastAPI a partir dos *type hints*.
@@ -110,8 +113,25 @@ loop agêntico com cliente mockado, e a API inteira.
 
 ## 🛠️ Stack
 
-Python 3.12 · FastAPI · pandas · NumPy · scikit-learn · SHAP · Claude API
-(Tool Use) · Pytest · Docker · PostgreSQL · Redis · GitHub Actions
+Python 3.12 · FastAPI · pandas · NumPy · scikit-learn · SHAP · **Gemini / Claude
+(Tool Use)** · Pytest · Docker · PostgreSQL · Redis · GitHub Actions
+
+## 🔌 Provedor de LLM intercambiável
+
+O sistema roda com **Gemini** (free tier) ou **Claude** — e trocar entre eles é
+mudar **uma linha do `.env`**, sem tocar em nenhuma linha de código:
+
+```
+PROVEDOR_LLM=gemini    # ou claude
+```
+
+Isso é possível porque o orquestrador ([app/llm/orchestrator.py](app/llm/orchestrator.py))
+**não importa nenhum SDK**. Ele depende só de um `Protocol` (uma interface). Um
+**Adapter** ([app/llm/gemini.py](app/llm/gemini.py)) traduz o dialeto do Gemini,
+e uma **Factory** ([app/llm/factory.py](app/llm/factory.py)) decide quem entregar.
+
+> Padrões: **Adapter** + **Factory** + **Dependency Inversion** (o "D" do SOLID).
+> Programar contra a interface, não contra a implementação.
 
 ## 📌 Decisões técnicas notáveis
 

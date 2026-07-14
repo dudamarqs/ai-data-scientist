@@ -2,20 +2,23 @@
 Camada de Orquestracao LLM - o MAESTRO.
 
 Implementa o "loop agentico" (Tool Use):
-  1. Manda a pergunta + a lista de ferramentas para o Claude.
-  2. Se o Claude pedir uma ferramenta (stop_reason == 'tool_use'),
+  1. Manda a pergunta + a lista de ferramentas para o LLM.
+  2. Se o LLM pedir uma ferramenta (stop_reason == 'tool_use'),
      NOSSO CODIGO executa e devolve o resultado.
-  3. Repete ate o Claude ter tudo que precisa e responder em portugues.
+  3. Repete ate o LLM ter tudo que precisa e responder em portugues.
 
 O LLM decide O QUE fazer. Ele nunca calcula. Isso elimina alucinacao numerica.
+
+IMPORTANTE: este arquivo NAO importa nenhum SDK de provedor. Ele depende apenas
+do PROTOCOLO abaixo (uma "interface"). Quem entrega um cliente concreto e a
+factory. Por isso trocar Claude <-> Gemini nao mexe em nada aqui.
 """
 from __future__ import annotations
 
-import anthropic
+from typing import Any, Protocol
 
 from app.llm.tools import FERRAMENTAS, CaixaDeFerramentas
 
-MODELO_PADRAO = "claude-opus-4-8"
 MAX_ITERACOES = 8  # trava de seguranca: impede loop infinito de ferramentas
 
 PROMPT_SISTEMA = """Voce e um cientista de dados senior conversando em portugues do Brasil.
@@ -36,6 +39,17 @@ Dados disponiveis nesta sessao:
 """
 
 
+class ClienteLLM(Protocol):
+    """O CONTRATO que qualquer provedor precisa cumprir para servir de maestro.
+
+    Tanto o SDK da Anthropic quanto o nosso ClienteGemini satisfazem isto.
+    Programar contra a interface (e nao contra a implementacao) e o "D" do SOLID:
+    Dependency Inversion.
+    """
+
+    messages: Any  # precisa expor .messages.create(...)
+
+
 class OrquestradorLLM:
     """O maestro: traduz linguagem natural <-> ferramentas de dados."""
 
@@ -44,11 +58,10 @@ class OrquestradorLLM:
         ferramentas: CaixaDeFerramentas,
         contexto_dataset: str,
         *,
-        cliente: anthropic.Anthropic | None = None,
-        modelo: str = MODELO_PADRAO,
+        cliente: ClienteLLM,
+        modelo: str,
     ) -> None:
-        # Injecao de dependencia: em testes passamos um cliente falso (mock).
-        self._cliente = cliente or anthropic.Anthropic()
+        self._cliente = cliente
         self._ferramentas = ferramentas
         self._modelo = modelo
         self._sistema = PROMPT_SISTEMA.format(contexto_dataset=contexto_dataset)
@@ -60,7 +73,7 @@ class OrquestradorLLM:
         for _ in range(MAX_ITERACOES):
             resposta = self._cliente.messages.create(
                 model=self._modelo,
-                max_tokens=16000,
+                max_tokens=8000,
                 system=self._sistema,
                 tools=FERRAMENTAS,
                 messages=mensagens,
@@ -69,7 +82,7 @@ class OrquestradorLLM:
             if resposta.stop_reason != "tool_use":
                 return self._extrair_texto(resposta)
 
-            # O Claude pediu ferramentas: executamos TODAS e devolvemos juntas.
+            # O LLM pediu ferramentas: executamos TODAS e devolvemos juntas.
             mensagens.append({"role": "assistant", "content": resposta.content})
             resultados = [
                 {
@@ -85,7 +98,7 @@ class OrquestradorLLM:
         return "Nao consegui concluir: limite de chamadas de ferramentas atingido."
 
     @staticmethod
-    def _extrair_texto(resposta) -> str:
+    def _extrair_texto(resposta: Any) -> str:
         return "\n".join(
             bloco.text for bloco in resposta.content if bloco.type == "text"
         ).strip()

@@ -101,7 +101,7 @@ def test_loop_agentico_executa_ferramenta_e_devolve_resposta(caixa):
             ),
         ]
     )
-    orquestrador = OrquestradorLLM(caixa, "ctx", cliente=cliente)
+    orquestrador = OrquestradorLLM(caixa, "ctx", cliente=cliente, modelo="modelo-falso")
 
     resposta = orquestrador.perguntar("Preco e quantidade tem relacao?")
 
@@ -122,7 +122,7 @@ def test_loop_tem_trava_contra_loop_infinito(caixa):
         stop_reason="tool_use",
     )
     cliente = ClienteFalso([pedido_infinito] * 50)
-    orquestrador = OrquestradorLLM(caixa, "ctx", cliente=cliente)
+    orquestrador = OrquestradorLLM(caixa, "ctx", cliente=cliente, modelo="modelo-falso")
 
     resposta = orquestrador.perguntar("loop!")
 
