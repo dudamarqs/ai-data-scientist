@@ -34,6 +34,11 @@ class BlocoFerramenta:
     name: str
     input: dict[str, Any]
     type: str = "tool_use"
+    # PECULIARIDADE DO GEMINI: ele devolve uma "assinatura do pensamento" junto
+    # com o pedido de funcao, e EXIGE que ela volte no historico. Sem isso, a
+    # segunda chamada falha com 400. Guardamos aqui para reenviar depois.
+    # Este detalhe fica PRESO no adaptador -- o resto do sistema nem sabe que existe.
+    assinatura: bytes | None = None
 
 
 @dataclass
@@ -117,9 +122,13 @@ class ClienteGemini:
                     if bloco.type == "text":
                         partes.append(types.Part.from_text(text=bloco.text))
                     elif bloco.type == "tool_use":
+                        # Reenviamos a assinatura do pensamento (exigencia do Gemini).
                         partes.append(
-                            types.Part.from_function_call(
-                                name=bloco.name, args=bloco.input
+                            types.Part(
+                                function_call=types.FunctionCall(
+                                    name=bloco.name, args=bloco.input
+                                ),
+                                thought_signature=bloco.assinatura,
                             )
                         )
                 conteudos.append(types.Content(role="model", parts=partes))
@@ -161,6 +170,7 @@ class ClienteGemini:
                         id=identificador,
                         name=chamada.name,
                         input=dict(chamada.args or {}),
+                        assinatura=getattr(parte, "thought_signature", None),
                     )
                 )
             elif getattr(parte, "text", None):
