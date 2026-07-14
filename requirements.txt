@@ -13,10 +13,11 @@ google-genai==2.11.0      # Gemini (free tier)
 anthropic==0.116.0        # Claude (pago) — opcional
 python-dotenv==1.0.1
 
-# === API (Módulo 8) ===
+# === API + Frontend (Módulo 8/10) ===
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
 python-multipart==0.0.32
+plotly==6.9.0            # gráficos interativos (gerados no servidor, em JSON)
 
 # === Testes ===
 pytest==8.3.4

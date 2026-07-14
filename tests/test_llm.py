@@ -115,6 +115,31 @@ def test_loop_agentico_executa_ferramenta_e_devolve_resposta(caixa):
     assert "-1.0" in tool_result["content"]              # o numero veio do pandas!
 
 
+def test_bastidores_registram_a_ferramenta_e_o_resultado(caixa):
+    """Os bastidores sao a AUDITORIA: provam que o numero veio do Python."""
+    cliente = ClienteFalso(
+        [
+            RespostaFalsa(
+                content=[BlocoFerramenta(id="t1", name="correlacao", input={})],
+                stop_reason="tool_use",
+            ),
+            RespostaFalsa(
+                content=[BlocoTexto("Correlacao perfeita negativa.")],
+                stop_reason="end_turn",
+            ),
+        ]
+    )
+    orquestrador = OrquestradorLLM(caixa, "ctx", cliente=cliente, modelo="modelo-falso")
+
+    resultado = orquestrador.perguntar_com_bastidores("Tem relacao?")
+
+    assert resultado.resposta == "Correlacao perfeita negativa."
+    assert len(resultado.bastidores) == 1
+    passo = resultado.bastidores[0]
+    assert passo.ferramenta == "correlacao"
+    assert "-1.0" in passo.resultado      # o numero real, calculado pelo pandas
+
+
 def test_loop_tem_trava_contra_loop_infinito(caixa):
     """Se o LLM pedir ferramenta pra sempre, o loop precisa parar."""
     pedido_infinito = RespostaFalsa(

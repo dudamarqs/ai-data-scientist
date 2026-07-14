@@ -80,8 +80,20 @@ uvicorn app.api.main:app --reload
 > 🔑 A chave do **Gemini é gratuita** e não pede cartão: https://aistudio.google.com/apikey
 > Prefere o Claude? Troque uma linha no `.env`: `PROVEDOR_LLM=claude`.
 
-Abra **http://localhost:8000/docs** — documentação interativa gerada
-automaticamente pelo FastAPI a partir dos *type hints*.
+Abra **http://localhost:8000** — a **interface web**. Arraste um CSV e comece a
+perguntar. (A documentação interativa da API, gerada sozinha pelo FastAPI a
+partir dos *type hints*, fica em **/docs**.)
+
+### 🖥️ A interface
+
+| | |
+|---|---|
+| **Upload** | Arraste o CSV. O sistema detecta os tipos semânticos e limpa os dados na hora. |
+| **Perfil** | Chips coloridos mostram o que cada coluna **é** (moeda, data, CEP/ID, categoria…). |
+| **Tabela** | Preview das primeiras linhas. |
+| **Gráficos** | Histogramas (com a mediana marcada) e mapa de calor de correlação — Plotly, interativos. |
+| **Chat** | Pergunte em português. |
+| **🔧 Bastidores** | **O diferencial:** cada resposta traz um painel expansível mostrando *qual ferramenta o LLM pediu* e *qual número o Python devolveu*. É a **prova auditável** de que nada foi alucinado. |
 
 ### Docker
 
@@ -97,7 +109,10 @@ Sobe a API + PostgreSQL + Redis.
 |---|---|---|
 | `POST` | `/datasets` | Envia um CSV → roda o pipeline → devolve `dataset_id` + perfil |
 | `GET` | `/datasets/{id}` | Perfil semântico das colunas |
-| `POST` | `/datasets/{id}/perguntar` | Conversa com os dados (LLM + Tool Use) |
+| `GET` | `/datasets/{id}/preview` | Primeiras linhas (tabela do frontend) |
+| `GET` | `/datasets/{id}/graficos` | Figuras do Plotly em JSON |
+| `POST` | `/datasets/{id}/perguntar` | Conversa com os dados (LLM + Tool Use) — devolve a resposta **e os bastidores** |
+| `GET` | `/` | Interface web |
 | `GET` | `/saude` | Health check |
 
 ## 🧪 Testes

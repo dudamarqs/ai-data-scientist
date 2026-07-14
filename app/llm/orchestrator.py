@@ -15,11 +15,29 @@ factory. Por isso trocar Claude <-> Gemini nao mexe em nada aqui.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from app.llm.tools import FERRAMENTAS, CaixaDeFerramentas
 
 MAX_ITERACOES = 8  # trava de seguranca: impede loop infinito de ferramentas
+
+
+@dataclass(frozen=True)
+class ChamadaDeFerramenta:
+    """Um passo dos 'bastidores': o que o LLM pediu e o que o Python devolveu."""
+
+    ferramenta: str
+    argumentos: dict[str, Any]
+    resultado: str
+
+
+@dataclass
+class ResultadoConversa:
+    """A resposta final + o rastro auditavel de como ela foi obtida."""
+
+    resposta: str
+    bastidores: list[ChamadaDeFerramenta] = field(default_factory=list)
 
 PROMPT_SISTEMA = """Voce e um cientista de dados senior conversando em portugues do Brasil.
 
@@ -67,8 +85,17 @@ class OrquestradorLLM:
         self._sistema = PROMPT_SISTEMA.format(contexto_dataset=contexto_dataset)
 
     def perguntar(self, pergunta: str) -> str:
-        """Responde uma pergunta em linguagem natural sobre os dados."""
+        """Responde uma pergunta em linguagem natural (so o texto final)."""
+        return self.perguntar_com_bastidores(pergunta).resposta
+
+    def perguntar_com_bastidores(self, pergunta: str) -> ResultadoConversa:
+        """Igual ao `perguntar`, mas devolve tambem o rastro das ferramentas.
+
+        Esse rastro e o que torna o sistema AUDITAVEL: da para provar que cada
+        numero da resposta saiu de uma funcao Python, e nao da cabeca do LLM.
+        """
         mensagens: list[dict] = [{"role": "user", "content": pergunta}]
+        bastidores: list[ChamadaDeFerramenta] = []
 
         for _ in range(MAX_ITERACOES):
             resposta = self._cliente.messages.create(
@@ -80,22 +107,31 @@ class OrquestradorLLM:
             )
 
             if resposta.stop_reason != "tool_use":
-                return self._extrair_texto(resposta)
+                return ResultadoConversa(self._extrair_texto(resposta), bastidores)
 
             # O LLM pediu ferramentas: executamos TODAS e devolvemos juntas.
             mensagens.append({"role": "assistant", "content": resposta.content})
-            resultados = [
-                {
-                    "type": "tool_result",
-                    "tool_use_id": bloco.id,
-                    "content": self._ferramentas.executar(bloco.name, bloco.input),
-                }
-                for bloco in resposta.content
-                if bloco.type == "tool_use"
-            ]
+            resultados = []
+            for bloco in resposta.content:
+                if bloco.type != "tool_use":
+                    continue
+                saida = self._ferramentas.executar(bloco.name, bloco.input)
+                bastidores.append(
+                    ChamadaDeFerramenta(bloco.name, dict(bloco.input), saida)
+                )
+                resultados.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": bloco.id,
+                        "content": saida,
+                    }
+                )
             mensagens.append({"role": "user", "content": resultados})
 
-        return "Nao consegui concluir: limite de chamadas de ferramentas atingido."
+        return ResultadoConversa(
+            "Nao consegui concluir: limite de chamadas de ferramentas atingido.",
+            bastidores,
+        )
 
     @staticmethod
     def _extrair_texto(resposta: Any) -> str:

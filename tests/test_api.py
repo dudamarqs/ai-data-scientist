@@ -74,6 +74,39 @@ def test_pergunta_sem_chave_de_api_da_503(cliente, monkeypatch, provedor, chave_
     assert chave_esperada in resposta.json()["detail"]
 
 
+def test_pagina_inicial_serve_o_frontend(cliente):
+    resposta = cliente.get("/")
+    assert resposta.status_code == 200
+    assert "AI Data Scientist" in resposta.text
+
+
+def test_preview_devolve_linhas_para_a_tabela(cliente):
+    dataset_id = cliente.post(
+        "/datasets", files={"arquivo": ("v.csv", CSV, "text/csv")}
+    ).json()["dataset_id"]
+
+    corpo = cliente.get(f"/datasets/{dataset_id}/preview").json()
+
+    assert corpo["total_linhas"] == 3          # 4 linhas - 1 duplicata
+    assert "preco" in corpo["colunas"]
+    assert len(corpo["linhas"]) == 3
+    # a data virou texto legivel (JSON nao entende datetime)
+    assert isinstance(corpo["linhas"][0]["data_venda"], str)
+
+
+def test_graficos_devolve_figuras_do_plotly(cliente):
+    dataset_id = cliente.post(
+        "/datasets", files={"arquivo": ("v.csv", CSV, "text/csv")}
+    ).json()["dataset_id"]
+
+    corpo = cliente.get(f"/datasets/{dataset_id}/graficos").json()
+
+    assert len(corpo["graficos"]) >= 1
+    grafico = corpo["graficos"][0]
+    assert "data" in grafico["figura"]        # formato que o Plotly.js espera
+    assert "layout" in grafico["figura"]
+
+
 def test_pergunta_curta_demais_e_rejeitada_pelo_pydantic(cliente):
     dataset_id = cliente.post(
         "/datasets", files={"arquivo": ("v.csv", CSV, "text/csv")}

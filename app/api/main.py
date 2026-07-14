@@ -2,27 +2,47 @@
 Camada de API (FastAPI) - a porta de entrada do sistema.
 
 Rotas:
+  GET  /                               -> a interface web (frontend)
   POST /datasets                       -> envia um CSV, recebe um dataset_id
   GET  /datasets/{id}                  -> perfil semantico do dataset
+  GET  /datasets/{id}/preview          -> primeiras linhas (tabela)
+  GET  /datasets/{id}/graficos         -> figuras do Plotly (JSON)
   POST /datasets/{id}/perguntar        -> conversa com os dados (LLM)
 """
 from __future__ import annotations
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
+from pathlib import Path
 
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
+from app.analysis.charts import gerar_graficos, preview
 from app.api.repository import RepositorioDeDatasets, repositorio
-from app.api.schemas import DatasetCriado, Pergunta, Resposta
+from app.api.schemas import (
+    DatasetCriado,
+    Graficos,
+    Pergunta,
+    Preview,
+    Resposta,
+)
 from app.core import config
 from app.core.pipeline import DatasetPreparado, preparar
 from app.ingestion import ErroDeIngestao
 from app.llm import CaixaDeFerramentas, OrquestradorLLM, descrever_dataset
 from app.llm.factory import ProvedorNaoConfigurado, criar_cliente
 
+DIRETORIO_WEB = Path(__file__).resolve().parent.parent / "web"
+
 app = FastAPI(
     title="AI Data Scientist",
     description="Envie um CSV e converse com seus dados em linguagem natural.",
-    version="0.1.0",
+    version="1.0.0",
 )
+
+# Serve o CSS/JS. A pagina em si tem rota propria (abaixo) para nao competir
+# com as rotas da API -- por isso montamos so /static, e nao a raiz.
+app.mount("/static", StaticFiles(directory=DIRETORIO_WEB), name="static")
 
 
 def obter_repositorio() -> RepositorioDeDatasets:
@@ -35,6 +55,22 @@ def _buscar_ou_404(repo: RepositorioDeDatasets, dataset_id: str) -> DatasetPrepa
     if dataset is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset nao encontrado.")
     return dataset
+
+
+def _resumo(dataset_id: str, dataset: DatasetPreparado) -> DatasetCriado:
+    return DatasetCriado(
+        dataset_id=dataset_id,
+        linhas=len(dataset.df),
+        colunas=len(dataset.df.columns),
+        duplicatas_removidas=dataset.duplicatas_removidas,
+        perfil={c: t.value for c, t in dataset.perfil.items()},
+    )
+
+
+@app.get("/", include_in_schema=False)
+def pagina_inicial() -> FileResponse:
+    """A interface web."""
+    return FileResponse(DIRETORIO_WEB / "index.html")
 
 
 @app.get("/saude", tags=["infra"])
@@ -68,14 +104,7 @@ async def enviar_csv(
         # Traduzimos o erro da NOSSA camada para o protocolo HTTP.
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(erro)) from erro
 
-    dataset_id = repo.salvar(dataset)
-    return DatasetCriado(
-        dataset_id=dataset_id,
-        linhas=len(dataset.df),
-        colunas=len(dataset.df.columns),
-        duplicatas_removidas=dataset.duplicatas_removidas,
-        perfil={c: t.value for c, t in dataset.perfil.items()},
-    )
+    return _resumo(repo.salvar(dataset), dataset)
 
 
 @app.get("/datasets/{dataset_id}", response_model=DatasetCriado, tags=["dados"])
@@ -83,14 +112,28 @@ def ver_dataset(
     dataset_id: str,
     repo: RepositorioDeDatasets = Depends(obter_repositorio),
 ) -> DatasetCriado:
+    return _resumo(dataset_id, _buscar_ou_404(repo, dataset_id))
+
+
+@app.get("/datasets/{dataset_id}/preview", response_model=Preview, tags=["dados"])
+def ver_preview(
+    dataset_id: str,
+    linhas: int = 10,
+    repo: RepositorioDeDatasets = Depends(obter_repositorio),
+) -> Preview:
+    """Primeiras linhas, para a tabela do frontend."""
     dataset = _buscar_ou_404(repo, dataset_id)
-    return DatasetCriado(
-        dataset_id=dataset_id,
-        linhas=len(dataset.df),
-        colunas=len(dataset.df.columns),
-        duplicatas_removidas=dataset.duplicatas_removidas,
-        perfil={c: t.value for c, t in dataset.perfil.items()},
-    )
+    return Preview(**preview(dataset.df, linhas=min(linhas, 50)))
+
+
+@app.get("/datasets/{dataset_id}/graficos", response_model=Graficos, tags=["dados"])
+def ver_graficos(
+    dataset_id: str,
+    repo: RepositorioDeDatasets = Depends(obter_repositorio),
+) -> Graficos:
+    """Histogramas + mapa de correlacao, gerados no servidor (Plotly)."""
+    dataset = _buscar_ou_404(repo, dataset_id)
+    return Graficos(graficos=gerar_graficos(dataset.df, dataset.perfil))
 
 
 @app.post("/datasets/{dataset_id}/perguntar", response_model=Resposta, tags=["llm"])
@@ -113,4 +156,17 @@ def perguntar(
         cliente=cliente,
         modelo=modelo,
     )
-    return Resposta(pergunta=pergunta.texto, resposta=orquestrador.perguntar(pergunta.texto))
+    resultado = orquestrador.perguntar_com_bastidores(pergunta.texto)
+
+    return Resposta(
+        pergunta=pergunta.texto,
+        resposta=resultado.resposta,
+        bastidores=[
+            {
+                "ferramenta": c.ferramenta,
+                "argumentos": c.argumentos,
+                "resultado": c.resultado,
+            }
+            for c in resultado.bastidores
+        ],
+    )
