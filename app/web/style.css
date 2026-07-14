@@ -42,6 +42,12 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* CRITICO: o navegador aplica [hidden]{display:none}, mas qualquer regra nossa
+   com `display: flex/grid` tem especificidade MAIOR e sobrescreve isso -- o
+   atributo hidden vira decoracao e o elemento nunca some. Esta linha garante
+   que `hidden` sempre ganhe. */
+[hidden] { display: none !important; }
+
 html { height: 100%; }
 
 body {
@@ -306,18 +312,19 @@ body {
 }
 @keyframes surgir { from { opacity: 0 } to { opacity: 1 } }
 
+/* Desliza da ESQUERDA. */
 .painel {
-  position: fixed; top: 0; right: 0; bottom: 0; z-index: 21;
-  width: min(520px, 100%);
+  position: fixed; top: 0; left: 0; bottom: 0; z-index: 21;
+  width: min(540px, 100%);
   display: flex; flex-direction: column;
   padding: 1.1rem 1.25rem 1.5rem;
   background: var(--superficie);
-  border-left: 1px solid var(--borda);
+  border-right: 1px solid var(--borda);
   box-shadow: var(--sombra-forte);
   overflow-y: auto;
   animation: deslizar .22s cubic-bezier(.32, .72, 0, 1);
 }
-@keyframes deslizar { from { transform: translateX(100%) } to { transform: none } }
+@keyframes deslizar { from { transform: translateX(-100%) } to { transform: none } }
 
 .painel-topo {
   display: flex; align-items: center; justify-content: space-between;
