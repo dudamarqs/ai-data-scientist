@@ -1,0 +1,27 @@
+# Blueprint do Render (https://render.com) -- deploy quase automatico.
+#
+# Como usar:
+#   1. Crie conta gratuita no Render e conecte sua conta do GitHub.
+#   2. New > Blueprint > selecione o repositorio ai-data-scientist.
+#   3. O Render le este arquivo, constroi o Dockerfile e publica.
+#   4. Em Environment, defina GOOGLE_API_KEY com a sua chave (fica secreta).
+#
+# O plano free hiberna apos ~15 min sem uso; a 1a visita depois disso demora
+# ~1 min para "acordar". Normal para portfolio.
+services:
+  - type: web
+    name: ai-data-scientist
+    runtime: docker
+    plan: free
+    region: oregon
+    healthCheckPath: /saude
+    autoDeploy: true          # todo push na main re-publica sozinho
+    envVars:
+      - key: PROVEDOR_LLM
+        value: gemini
+      - key: MODELO_GEMINI
+        value: gemini-flash-lite-latest
+      - key: TAMANHO_MAXIMO_MB
+        value: "25"
+      - key: GOOGLE_API_KEY
+        sync: false           # NAO vai no arquivo -- voce cola no painel (segredo)

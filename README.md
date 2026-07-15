@@ -103,6 +103,19 @@ docker compose up --build
 
 Sobe a API + PostgreSQL + Redis.
 
+## ☁️ Deploy (colocar no ar)
+
+O projeto já vem com um blueprint do **[Render](https://render.com)** ([render.yaml](render.yaml)):
+
+1. Crie uma conta gratuita no Render e conecte seu GitHub.
+2. **New → Blueprint** → selecione o repositório `ai-data-scientist`.
+3. O Render lê o `render.yaml`, constrói o `Dockerfile` e publica.
+4. Em **Environment**, defina `GOOGLE_API_KEY` com sua chave (fica secreta).
+
+O `Dockerfile` respeita a variável `PORT` que o serviço injeta, então também roda
+em Cloud Run, Railway ou Hugging Face Spaces sem alteração. O plano free do Render
+hiberna após ~15 min sem uso (a 1ª visita seguinte demora ~1 min para acordar).
+
 ## 📡 API
 
 | Método | Rota | Descrição |

@@ -29,10 +29,14 @@ USER appuser
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
+# Servicos de hospedagem (Render, Cloud Run, HF Spaces) injetam a porta na
+# variavel PORT. Caimos para 8000 quando rodando localmente.
+ENV PORT=8000
 EXPOSE 8000
 
 # Health check: o Docker/Kubernetes pergunta "voce esta vivo?" periodicamente.
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/saude')"
+HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --retries=3 \
+    CMD python -c "import os,urllib.request; urllib.request.urlopen('http://localhost:%s/saude' % os.environ.get('PORT','8000'))"
 
-CMD ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Forma "shell" para que ${PORT} seja expandido em tempo de execucao.
+CMD ["sh", "-c", "uvicorn app.api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
