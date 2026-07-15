@@ -79,6 +79,23 @@ def test_ferramenta_desconhecida_devolve_erro_em_vez_de_quebrar(caixa):
     assert "desconhecida" in caixa.executar("ferramenta_inventada", {})
 
 
+def test_ranking_top_n_por_coluna(caixa):
+    # DF do teste: preco [10,20,30,40], quantidade [4,3,2,1]
+    saida = caixa.executar("ranking", {"coluna": "preco", "ordem": "maior", "n": 2})
+    linhas = saida.strip().splitlines()
+    assert len(linhas) == 3               # cabecalho + 2 linhas
+    assert "40" in linhas[1]              # o maior preco vem primeiro
+
+
+def test_ranking_ordem_menor(caixa):
+    saida = caixa.executar("ranking", {"coluna": "preco", "ordem": "menor", "n": 1})
+    assert "10" in saida                  # o menor preco
+
+
+def test_ranking_coluna_inexistente_avisa(caixa):
+    assert "nao existe" in caixa.executar("ranking", {"coluna": "inventada"})
+
+
 def test_erro_na_execucao_vira_mensagem_para_o_llm(caixa):
     # coluna que nao e categorica -> erro tratado, nao excecao
     saida = caixa.executar("contagem_por_categoria", {"coluna": "preco"})

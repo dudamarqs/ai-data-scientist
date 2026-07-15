@@ -111,6 +111,33 @@ FERRAMENTAS: list[dict[str, Any]] = [
             "required": ["alvo"],
         },
     },
+    {
+        "name": "ranking",
+        "description": (
+            "Ordena os dados por uma coluna numerica e retorna as N primeiras linhas. "
+            "Use para 'os 10 melhores', 'top 5', 'os piores', 'maiores', 'menores', "
+            "'quem mais/menos ...'. Devolve as linhas ja ordenadas."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "coluna": {
+                    "type": "string",
+                    "description": "Coluna numerica pela qual ordenar (ex.: nota_final).",
+                },
+                "ordem": {
+                    "type": "string",
+                    "enum": ["maior", "menor"],
+                    "description": "'maior' = do maior para o menor (top); 'menor' = inverso.",
+                },
+                "n": {
+                    "type": "integer",
+                    "description": "Quantas linhas retornar (padrao 10, maximo 50).",
+                },
+            },
+            "required": ["coluna"],
+        },
+    },
 ]
 
 
@@ -134,6 +161,7 @@ class CaixaDeFerramentas:
                 "contagem_por_categoria": self._contagem,
                 "treinar_modelos": self._treinar,
                 "importancia_variaveis": self._importancia,
+                "ranking": self._ranking,
             }[nome]
         except KeyError:
             return f"Erro: ferramenta desconhecida '{nome}'."
@@ -170,6 +198,22 @@ class CaixaDeFerramentas:
         pipeline, X_teste = treinar_para_explicar(self._df, self._perfil, alvo=alvo)
         valores, nomes = calcular_shap(pipeline, X_teste.head(100))
         return importancia_global(valores, nomes).round(3).to_string()
+
+    def _ranking(self, coluna: str, ordem: str = "maior", n: int = 10) -> str:
+        if coluna not in self._df.columns:
+            return f"Erro: coluna '{coluna}' nao existe. Colunas: {list(self._df.columns)}"
+
+        valores = pd.to_numeric(self._df[coluna], errors="coerce")
+        if valores.notna().sum() == 0:
+            return f"Erro: '{coluna}' nao e numerica; nao da para ordenar por ela."
+
+        n = max(1, min(int(n), 50))
+        ordenado = (
+            self._df.assign(**{coluna: valores})
+            .sort_values(coluna, ascending=(ordem == "menor"))
+            .head(n)
+        )
+        return ordenado.to_string(index=False)
 
 
 def descrever_dataset(df: pd.DataFrame, perfil: dict[str, TipoSemantico]) -> str:
