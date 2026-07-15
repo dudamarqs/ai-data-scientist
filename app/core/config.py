@@ -5,6 +5,7 @@ NUNCA colocamos segredos no codigo. O .env fica fora do Git (.gitignore).
 from __future__ import annotations
 
 import os
+import tempfile
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -29,4 +30,9 @@ MODELO_CLAUDE: str = os.getenv("MODELO_CLAUDE", "claude-opus-4-8")
 TAMANHO_MAXIMO_MB: int = int(os.getenv("TAMANHO_MAXIMO_MB", "50"))
 TAMANHO_MAXIMO_BYTES: int = TAMANHO_MAXIMO_MB * 1024 * 1024
 
-DIRETORIO_UPLOADS = Path(os.getenv("DIRETORIO_UPLOADS", "data/uploads"))
+# Uploads sao TEMPORARIOS (lidos para memoria e descartados). Vao para o diretorio
+# temporario do sistema, que e sempre gravavel -- inclusive dentro de um container
+# onde o WORKDIR pertence ao root e o app roda como usuario sem privilegios.
+DIRETORIO_UPLOADS = Path(
+    os.getenv("DIRETORIO_UPLOADS", Path(tempfile.gettempdir()) / "ads_uploads")
+)
