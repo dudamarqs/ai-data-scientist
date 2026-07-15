@@ -417,6 +417,10 @@ th {
 tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover { background: var(--superficie-2); }
 td.nulo { color: var(--texto-3); font-style: italic; }
+.legenda-tabela {
+  margin-top: .6rem; text-align: center;
+  font-size: .76rem; color: var(--texto-3);
+}
 
 /* gráficos */
 .graficos { display: grid; gap: .85rem; }

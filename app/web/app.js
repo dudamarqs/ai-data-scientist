@@ -173,7 +173,7 @@ document.querySelectorAll(".aba").forEach((aba) =>
 );
 
 async function carregarTabela() {
-  const dados = await (await fetch(`/datasets/${datasetId}/preview`)).json();
+  const dados = await (await fetch(`/datasets/${datasetId}/preview?linhas=100`)).json();
 
   const cabecalho = `<thead><tr>${dados.colunas
     .map((c) => `<th>${escapar(c)}</th>`)
@@ -194,6 +194,14 @@ async function carregarTabela() {
     .join("");
 
   $("tabela").innerHTML = cabecalho + `<tbody>${corpo}</tbody>`;
+
+  // Legenda honesta: quantas linhas estao a mostra, de quantas no total.
+  const mostradas = dados.linhas.length;
+  const total = dados.total_linhas;
+  $("legenda-tabela").textContent =
+    mostradas < total
+      ? `Mostrando as primeiras ${mostradas} de ${total.toLocaleString("pt-BR")} linhas`
+      : `Mostrando todas as ${total.toLocaleString("pt-BR")} linhas`;
 }
 
 async function carregarGraficos() {

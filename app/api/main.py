@@ -119,12 +119,17 @@ def ver_dataset(
 @app.get("/datasets/{dataset_id}/preview", response_model=Preview, tags=["dados"])
 def ver_preview(
     dataset_id: str,
-    linhas: int = 10,
+    linhas: int = 100,
     repo: RepositorioDeDatasets = Depends(obter_repositorio),
 ) -> Preview:
-    """Primeiras linhas, para a tabela do frontend."""
+    """Amostra das primeiras linhas, para a tabela do frontend.
+
+    E uma AMOSTRA de proposito: um CSV pode ter centenas de milhares de linhas,
+    e jogar tudo isso no HTML travaria o navegador. O `total_linhas` na resposta
+    permite ao frontend avisar 'mostrando X de Y'.
+    """
     dataset = _buscar_ou_404(repo, dataset_id)
-    return Preview(**preview(dataset.df, linhas=min(linhas, 50)))
+    return Preview(**preview(dataset.df, linhas=min(max(linhas, 1), 500)))
 
 
 @app.get("/datasets/{dataset_id}/graficos", response_model=Graficos, tags=["dados"])
