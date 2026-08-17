@@ -131,7 +131,7 @@ hiberna após ~15 min sem uso (a 1ª visita seguinte demora ~1 min para acordar)
 ## 🧪 Testes
 
 ```bash
-pytest -q      # 39 testes
+pytest -q      # 51 testes
 ```
 
 Cobrem os caminhos felizes **e** os de erro: arquivo inexistente, CSV vazio,
