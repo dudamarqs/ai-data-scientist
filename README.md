@@ -1,70 +1,74 @@
-# 🤖 AI Data Scientist
+# AI Data Scientist
 
-Envie um **CSV** e **converse com seus dados em português**. O sistema detecta os
-tipos semânticos das colunas, limpa os dados, faz análise exploratória, treina
-modelos de Machine Learning, explica os resultados com SHAP — e responde às suas
-perguntas em linguagem natural.
+Upload a **CSV** and **talk to your data in plain language**. The system detects
+the semantic type of each column, cleans the data, runs exploratory analysis,
+trains machine learning models, explains the results with SHAP — and answers
+your questions in natural language.
+
+The interface and the answers are in **Portuguese**, the language of the users
+this was built for. The architecture below is what the project is really about.
 
 ```
-"Qual o preço típico dos produtos?"     → mediana calculada pelo pandas
-"Existe relação entre preço e vendas?"  → correlação de Pearson
-"O que mais influencia as vendas?"      → SHAP (valores de Shapley)
-"Dá para prever a quantidade vendida?"  → treina e compara 4 modelos
+"What is the typical product price?"        -> median computed by pandas
+"Is there a relation between price and sales?" -> Pearson correlation
+"What drives sales the most?"               -> SHAP (Shapley values)
+"Can we predict units sold?"                -> trains and compares 4 models
 ```
 
-## 🎯 O princípio de arquitetura
+## The architectural principle
 
-> ### O LLM **orquestra**. O código **calcula**.
+> ### The LLM **orchestrates**. The code **computes**.
 
-LLMs são excelentes em linguagem e **péssimos em aritmética** — perguntar "qual a
-média?" a um LLM produz um número **alucinado**. Por isso, aqui o LLM **nunca
-calcula**:
+LLMs are excellent at language and **terrible at arithmetic** — asking an LLM
+"what is the average?" produces a **hallucinated** number. So here the LLM
+**never computes**:
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  "Faça previsões de vendas para os próximos 6 meses"          │
+│  "Forecast sales for the next 6 months"                      │
 └───────────────────────────┬──────────────────────────────────┘
                             ▼
               ┌─────────────────────────────┐
-              │   LLM (o MAESTRO)           │  decide O QUE fazer
-              │   → chama `treinar_modelos` │  (Tool Use)
+              │   LLM (the CONDUCTOR)       │  decides WHAT to do
+              │   -> calls `treinar_modelos`│  (Tool Use)
               └──────────────┬──────────────┘
                              ▼
               ┌─────────────────────────────┐
-              │  MOTOR DETERMINÍSTICO       │  faz a MATEMÁTICA
-              │  pandas / sklearn / SHAP    │  (exata, auditável)
+              │  DETERMINISTIC ENGINE       │  does the MATH
+              │  pandas / sklearn / SHAP    │  (exact, auditable)
               └──────────────┬──────────────┘
                              ▼
               ┌─────────────────────────────┐
-              │   LLM (o MAESTRO)           │  EXPLICA em português
+              │   LLM (the CONDUCTOR)       │  EXPLAINS the result
               └─────────────────────────────┘
 ```
 
-Todo número que sai daqui foi calculado por NumPy — nunca inventado.
+Every number that leaves this system was computed by NumPy — never invented.
 
-## 🏗️ Arquitetura em camadas
+## Layered architecture
 
-Cada pasta é uma camada, com **uma única responsabilidade** (SRP):
+Each folder is a layer with a **single responsibility** (SRP):
 
 ```
 app/
-├── api/         # FastAPI — porta de entrada (upload, rotas, validação)
-├── ingestion/   # Leitura confiável de arquivos → DataFrame
-├── profiling/   # Detecção de tipos SEMÂNTICOS (data, moeda, CEP, ID…)
-├── quality/     # Limpeza: duplicatas, moeda BR, imputação por mediana
-├── analysis/    # EDA (estatística, correlação) + ML (treino e comparação)
-├── interpret/   # SHAP — abre a caixa-preta do modelo
-├── llm/         # Orquestração via Tool Use (o maestro)
-└── core/        # Pipeline, configuração
+├── api/         # FastAPI — entry point (upload, routes, validation)
+├── ingestion/   # Reliable file reading -> DataFrame
+├── profiling/   # SEMANTIC type detection (date, currency, postal code, ID...)
+├── quality/     # Cleaning: duplicates, BR currency format, median imputation
+├── analysis/    # EDA (statistics, correlation) + ML (training and comparison)
+├── interpret/   # SHAP — opens the model's black box
+├── llm/         # Orchestration via Tool Use (the conductor)
+└── core/        # Pipeline, configuration
 ```
 
-**Fluxo:** `Ingestão → Profiling → Qualidade → Análise/ML → LLM`
+**Flow:** `Ingestion -> Profiling -> Quality -> Analysis/ML -> LLM`
 
-O **profiling vem antes da limpeza** de propósito: *como* limpar depende do que a
-coluna **é**. Um CEP `01310` precisa ser texto (senão perde o zero); `"R$ 3.499,90"`
-precisa virar `float`; `05/01/2024` precisa virar `datetime`.
+**Profiling comes before cleaning** on purpose: *how* to clean depends on what
+the column **is**. A postal code `01310` has to stay text (otherwise it loses
+the leading zero); `"R$ 3.499,90"` has to become a `float`; `05/01/2024` has to
+become a `datetime`.
 
-## 🚀 Como rodar
+## Running it
 
 ### Local
 
@@ -73,27 +77,28 @@ py -3.12 -m venv .venv
 .venv\Scripts\activate            # Windows  (Linux/Mac: source .venv/bin/activate)
 pip install -r requirements.txt
 
-cp .env.example .env              # coloque sua GOOGLE_API_KEY (gratuita)
+cp .env.example .env              # add your GOOGLE_API_KEY (free tier)
 uvicorn app.api.main:app --reload
 ```
 
-> 🔑 A chave do **Gemini é gratuita** e não pede cartão: https://aistudio.google.com/apikey
-> Prefere o Claude? Troque uma linha no `.env`: `PROVEDOR_LLM=claude`.
+> The **Gemini key is free** and asks for no credit card:
+> https://aistudio.google.com/apikey
+> Prefer Claude? Change one line in `.env`: `PROVEDOR_LLM=claude`.
 
-Abra **http://localhost:8000** — a **interface web**. Arraste um CSV e comece a
-perguntar. (A documentação interativa da API, gerada sozinha pelo FastAPI a
-partir dos *type hints*, fica em **/docs**.)
+Open **http://localhost:8000** for the **web interface**. Drag a CSV in and
+start asking. (The interactive API documentation, generated by FastAPI itself
+from the type hints, lives at **/docs**.)
 
-### 🖥️ A interface
+### The interface
 
 | | |
 |---|---|
-| **Upload** | Arraste o CSV. O sistema detecta os tipos semânticos e limpa os dados na hora. |
-| **Perfil** | Chips coloridos mostram o que cada coluna **é** (moeda, data, CEP/ID, categoria…). |
-| **Tabela** | Preview das primeiras linhas. |
-| **Gráficos** | Histogramas (com a mediana marcada) e mapa de calor de correlação — Plotly, interativos. |
-| **Chat** | Pergunte em português. |
-| **🔧 Bastidores** | **O diferencial:** cada resposta traz um painel expansível mostrando *qual ferramenta o LLM pediu* e *qual número o Python devolveu*. É a **prova auditável** de que nada foi alucinado. |
+| **Upload** | Drag the CSV in. The system detects semantic types and cleans the data on the spot. |
+| **Profile** | Colored chips show what each column **is** (currency, date, postal code/ID, category...). |
+| **Table** | Preview of the first rows. |
+| **Charts** | Histograms (with the median marked) and a correlation heatmap — Plotly, interactive. |
+| **Chat** | Ask in plain language. |
+| **Behind the scenes** | **The differentiator:** every answer carries an expandable panel showing *which tool the LLM asked for* and *which number Python returned*. It is the **auditable proof** that nothing was hallucinated. |
 
 ### Docker
 
@@ -101,84 +106,90 @@ partir dos *type hints*, fica em **/docs**.)
 docker compose up --build
 ```
 
-Sobe a API + PostgreSQL + Redis.
+Brings up the API + PostgreSQL + Redis.
 
-## ☁️ Deploy (colocar no ar)
+## Deploy
 
-O projeto já vem com um blueprint do **[Render](https://render.com)** ([render.yaml](render.yaml)):
+The project ships with a **[Render](https://render.com)** blueprint
+([render.yaml](render.yaml)):
 
-1. Crie uma conta gratuita no Render e conecte seu GitHub.
-2. **New → Blueprint** → selecione o repositório `ai-data-scientist`.
-3. O Render lê o `render.yaml`, constrói o `Dockerfile` e publica.
-4. Em **Environment**, defina `GOOGLE_API_KEY` com sua chave (fica secreta).
+1. Create a free Render account and connect your GitHub.
+2. **New -> Blueprint** -> select the `ai-data-scientist` repository.
+3. Render reads `render.yaml`, builds the `Dockerfile` and publishes.
+4. Under **Environment**, set `GOOGLE_API_KEY` to your key (kept secret).
 
-O `Dockerfile` respeita a variável `PORT` que o serviço injeta, então também roda
-em Cloud Run, Railway ou Hugging Face Spaces sem alteração. O plano free do Render
-hiberna após ~15 min sem uso (a 1ª visita seguinte demora ~1 min para acordar).
+The `Dockerfile` honors the `PORT` variable the service injects, so it also runs
+on Cloud Run, Railway or Hugging Face Spaces without changes. Render's free plan
+sleeps after ~15 min of inactivity (the next visit takes ~1 min to wake it up).
 
-## 📡 API
+## API
 
-| Método | Rota | Descrição |
+| Method | Route | Description |
 |---|---|---|
-| `POST` | `/datasets` | Envia um CSV → roda o pipeline → devolve `dataset_id` + perfil |
-| `GET` | `/datasets/{id}` | Perfil semântico das colunas |
-| `GET` | `/datasets/{id}/preview` | Primeiras linhas (tabela do frontend) |
-| `GET` | `/datasets/{id}/graficos` | Figuras do Plotly em JSON |
-| `POST` | `/datasets/{id}/perguntar` | Conversa com os dados (LLM + Tool Use) — devolve a resposta **e os bastidores** |
-| `GET` | `/` | Interface web |
+| `POST` | `/datasets` | Upload a CSV -> run the pipeline -> return `dataset_id` + profile |
+| `GET` | `/datasets/{id}` | Semantic profile of the columns |
+| `GET` | `/datasets/{id}/preview` | First rows (the frontend table) |
+| `GET` | `/datasets/{id}/graficos` | Plotly figures as JSON |
+| `POST` | `/datasets/{id}/perguntar` | Talk to the data (LLM + Tool Use) — returns the answer **and the behind-the-scenes trace** |
+| `GET` | `/` | Web interface |
 | `GET` | `/saude` | Health check |
 
-## 🧪 Testes
+## Tests
 
 ```bash
-pytest -q      # 51 testes
+pytest -q      # 51 tests
 ```
 
-Cobrem os caminhos felizes **e** os de erro: arquivo inexistente, CSV vazio,
-encoding latin-1, heurística de tipo, correlação, baseline de ML (o modelo
-**tem** que superar o "chute na média"), SHAP apontando a variável causal, o
-loop agêntico com cliente mockado, e a API inteira.
+They cover the happy paths **and** the failure paths: missing file, empty CSV,
+latin-1 encoding, the type heuristic, correlation, the ML baseline (the model
+**must** beat "guess the mean"), SHAP pointing at the causal variable, the
+agentic loop with a mocked client, and the whole API.
 
-## 🛠️ Stack
+## Stack
 
 Python 3.12 · FastAPI · pandas · NumPy · scikit-learn · SHAP · **Gemini / Claude
 (Tool Use)** · Pytest · Docker · PostgreSQL · Redis · GitHub Actions
 
-## 🔌 Provedor de LLM intercambiável
+## Swappable LLM provider
 
-O sistema roda com **Gemini** (free tier) ou **Claude** — e trocar entre eles é
-mudar **uma linha do `.env`**, sem tocar em nenhuma linha de código:
+The system runs on **Gemini** (free tier) or **Claude** — and switching between
+them means changing **one line of `.env`**, without touching a single line of
+code:
 
 ```
-PROVEDOR_LLM=gemini    # ou claude
+PROVEDOR_LLM=gemini    # or claude
 ```
 
-Isso é possível porque o orquestrador ([app/llm/orchestrator.py](app/llm/orchestrator.py))
-**não importa nenhum SDK**. Ele depende só de um `Protocol` (uma interface). Um
-**Adapter** ([app/llm/gemini.py](app/llm/gemini.py)) traduz o dialeto do Gemini,
-e uma **Factory** ([app/llm/factory.py](app/llm/factory.py)) decide quem entregar.
+That is possible because the orchestrator
+([app/llm/orchestrator.py](app/llm/orchestrator.py)) **imports no SDK at all**.
+It depends only on a `Protocol` (an interface). An **Adapter**
+([app/llm/gemini.py](app/llm/gemini.py)) translates Gemini's dialect, and a
+**Factory** ([app/llm/factory.py](app/llm/factory.py)) decides which one to hand
+over.
 
-> Padrões: **Adapter** + **Factory** + **Dependency Inversion** (o "D" do SOLID).
-> Programar contra a interface, não contra a implementação.
+> Patterns: **Adapter** + **Factory** + **Dependency Inversion** (the "D" in
+> SOLID). Program against the interface, not against the implementation.
 
-## 📌 Decisões técnicas notáveis
+## Notable technical decisions
 
-- **Anti–data leakage:** o `Pipeline` do scikit-learn garante que tudo que
-  "aprende" com os dados (mediana da imputação, categorias do one-hot) seja
-  aprendido **só no treino**.
-- **Baseline obrigatório:** um teste **falha** se o melhor modelo não superar um
-  `DummyRegressor` que chuta a média. Modelo que não bate o burro é inútil.
-- **Identificadores fora do ML:** `cliente_id` é descartado das features — um ID
-  não tem poder preditivo, só ensina o modelo a decorar (overfitting).
-- **Mediana > média** na imputação: robusta a outliers.
-- **Fail-fast + exceções próprias:** `ErroDeIngestao` encapsula o pandas; trocar
-  a biblioteca não quebra quem chama.
-- **Limite de upload:** protege a RAM do servidor.
+- **Anti data leakage:** scikit-learn's `Pipeline` guarantees that everything
+  which "learns" from the data (the imputation median, the one-hot categories)
+  is learned **on the training split only**.
+- **Mandatory baseline:** a test **fails** if the best model does not beat a
+  `DummyRegressor` that guesses the mean. A model that cannot beat the dumb
+  guess is useless.
+- **Identifiers out of the ML:** `cliente_id` is dropped from the features — an
+  ID has no predictive power, it only teaches the model to memorize
+  (overfitting).
+- **Median over mean** for imputation: robust to outliers.
+- **Fail fast + custom exceptions:** `ErroDeIngestao` wraps pandas; swapping the
+  library does not break its callers.
+- **Upload size limit:** protects the server's RAM.
 
-## 🗺️ Próximos passos
+## Next steps
 
-- [ ] Persistência real (PostgreSQL) no lugar do repositório em memória
-- [ ] Treino assíncrono com Celery + Redis (hoje é síncrono)
-- [ ] Gráficos interativos (Plotly) e relatório em HTML/PDF
-- [ ] Séries temporais (Prophet/statsmodels) para sazonalidade
-- [ ] Autenticação e rate limiting
+- [ ] Real persistence (PostgreSQL) instead of the in-memory repository
+- [ ] Asynchronous training with Celery + Redis (today it is synchronous)
+- [ ] Interactive charts (Plotly) and an HTML/PDF report
+- [ ] Time series (Prophet/statsmodels) for seasonality
+- [ ] Authentication and rate limiting
