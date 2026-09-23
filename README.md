@@ -106,7 +106,10 @@ from the type hints, lives at **/docs**.)
 docker compose up --build
 ```
 
-Brings up the API + PostgreSQL + Redis.
+Brings up the API + PostgreSQL + Redis. The two services are already provisioned
+(with health checks), but the app does not use them yet: dataset metadata still
+lives in memory and training is synchronous. Wiring them in is the first item in
+[Next steps](#next-steps).
 
 ## Deploy
 
@@ -188,8 +191,8 @@ over.
 
 ## Next steps
 
-- [ ] Real persistence (PostgreSQL) instead of the in-memory repository
-- [ ] Asynchronous training with Celery + Redis (today it is synchronous)
-- [ ] Interactive charts (Plotly) and an HTML/PDF report
+- [ ] Real persistence: store dataset metadata in PostgreSQL (already in the compose file) instead of the in-memory repository
+- [ ] Asynchronous training with Celery, using Redis (already in the compose file) as the queue (today it is synchronous)
+- [ ] Downloadable HTML/PDF report
 - [ ] Time series (Prophet/statsmodels) for seasonality
 - [ ] Authentication and rate limiting
